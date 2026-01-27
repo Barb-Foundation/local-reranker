@@ -175,7 +175,7 @@ class Reranker(RerankerProtocol):
             List of RerankResult objects
         """
         results = []
-        for result_dict, original_idx in zip(batch_results, original_indices):
+        for result_dict in batch_results:
             relevance_score = float(result_dict["relevance_score"])
             batch_relative_index = int(result_dict["index"])
 
@@ -188,7 +188,7 @@ class Reranker(RerankerProtocol):
             results.append(
                 RerankResult(
                     document=document,
-                    index=original_idx,
+                    index=original_indices[batch_relative_index],
                     relevance_score=relevance_score,
                 )
             )
