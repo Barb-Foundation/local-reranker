@@ -31,6 +31,76 @@ class ModelPredictor(Protocol):
         ...
 
 
+class DocumentTextExtractor:
+    """Utility for extracting text from various document formats."""
+
+    COMMON_TEXT_FIELDS = ["text", "content", "document", "body", "message"]
+
+    @classmethod
+    def extract(
+        cls,
+        doc: Union[str, Dict[str, Any]],
+        text_fields: Optional[List[str]] = None,
+        default: Optional[str] = "",
+    ) -> Optional[str]:
+        """Extract text from a document (string or dict).
+
+        Args:
+            doc: Document as string or dict
+            text_fields: List of field names to try (defaults to common fields)
+            default: Default value if no text found
+
+        Returns:
+            Document text as string, or default if not found
+        """
+        if isinstance(doc, str):
+            return doc.strip() if doc.strip() else default
+
+        if not isinstance(doc, dict):
+            return default
+
+        fields_to_try = text_fields or cls.COMMON_TEXT_FIELDS
+
+        for field in fields_to_try:
+            if field in doc:
+                text = doc[field]
+                if isinstance(text, str) and text.strip():
+                    return text.strip()
+
+        return default
+
+    @classmethod
+    def extract_batch(
+        cls,
+        documents: List[Union[str, Dict[str, Any]]],
+        text_fields: Optional[List[str]] = None,
+        default: Optional[str] = "",
+        skip_invalid: bool = True,
+    ) -> List[str]:
+        """Extract text from a batch of documents.
+
+        Args:
+            documents: List of documents (strings or dicts)
+            text_fields: List of field names to try
+            default: Default value for invalid documents
+            skip_invalid: If True, skip invalid documents; if False, use default
+
+        Returns:
+            List of extracted document texts
+        """
+        results = []
+        for i, doc in enumerate(documents):
+            text = cls.extract(doc, text_fields, default)
+            if text or not skip_invalid:
+                if text is not None:
+                    results.append(text)
+                else:
+                    logger.debug(f"Skipping invalid document at index {i}")
+            else:
+                logger.debug(f"Skipping invalid document at index {i}")
+        return results
+
+
 def extract_document_text(doc: Union[str, Dict[str, Any]]) -> str:
     """Extract text from a document (string or dict).
 
@@ -40,7 +110,8 @@ def extract_document_text(doc: Union[str, Dict[str, Any]]) -> str:
     Returns:
         Document text as string
     """
-    return doc if isinstance(doc, str) else doc.get("text", "")
+    result = DocumentTextExtractor.extract(doc, text_fields=["text"], default="")
+    return result or ""
 
 
 def create_rerank_result(
@@ -182,6 +253,15 @@ def process_batches(
                 logger.warning(f"[{backend_name}] No results for batch {batch_idx + 1}")
                 continue
 
+            if len(batch_results) != len(batch_docs):
+                logger.error(
+                    f"[{backend_name}] Result count mismatch in batch {batch_idx + 1}: "
+                    f"expected {len(batch_docs)} results, got {len(batch_results)}"
+                )
+                raise ValueError(
+                    f"Model returned {len(batch_results)} results for {len(batch_docs)} documents"
+                )
+
             formatted_results = []
             for batch_relative_index, result_dict in enumerate(batch_results):
                 result = create_rerank_result(
@@ -201,6 +281,11 @@ def process_batches(
                 f"{len(formatted_results)} results"
             )
 
+        except ValueError as value_error:
+            logger.error(
+                f"[{backend_name}] Batch {batch_idx + 1} validation failed: {value_error}"
+            )
+            return []
         except Exception as batch_error:
             logger.error(
                 f"[{backend_name}] Batch {batch_idx + 1} failed: {batch_error}"

@@ -112,15 +112,25 @@ class BatchManager:
             logger.warning("BatchManager: No documents to batch")
             return [], []
 
-        # Extract document texts
+        # Extract document texts and track original indices
         documents = []
+        original_indices = []
         for i, doc in enumerate(request.documents):
+            doc_text = None
             if isinstance(doc, str):
-                documents.append(doc)
+                doc_text = doc.strip() if doc.strip() else None
             elif isinstance(doc, dict) and "text" in doc:
-                documents.append(doc["text"])
+                text = doc["text"]
+                if isinstance(text, str) and text.strip():
+                    doc_text = text.strip()
+
+            if doc_text:
+                documents.append(doc_text)
+                original_indices.append(i)
             else:
-                logger.warning(f"BatchManager: Skipping invalid document at index {i}")
+                logger.warning(
+                    f"BatchManager: Skipping invalid or empty document at index {i}"
+                )
                 continue
 
         if not documents:
@@ -134,7 +144,7 @@ class BatchManager:
         for i in range(0, len(documents), self.batch_size):
             end_idx = min(i + self.batch_size, len(documents))
             batch_docs = documents[i:end_idx]
-            batch_idx = list(range(i, end_idx))
+            batch_idx = original_indices[i:end_idx]
 
             batches.append(batch_docs)
             batch_indices.append(batch_idx)

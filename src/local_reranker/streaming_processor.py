@@ -2,12 +2,13 @@
 """Streaming document processor for memory-efficient processing."""
 
 import logging
-from typing import Iterator, List, Union, Dict, Any, Optional
+from typing import Iterator, List, Union, Dict, Any, Optional, cast
 from pathlib import Path
 import json
 import csv
 
 from .models import RerankRequest
+from .batch_processor import DocumentTextExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -49,17 +50,17 @@ class StreamingDocumentProcessor:
         Yields:
             Chunks of document strings.
         """
-        file_path = Path(file_path)
+        path_obj = Path(file_path)
 
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
+        if not path_obj.exists():
+            raise FileNotFoundError(f"File not found: {path_obj}")
 
-        if file_path.suffix.lower() == ".json":
-            yield from self._stream_from_json(file_path, document_field)
-        elif file_path.suffix.lower() == ".csv":
-            yield from self._stream_from_csv(file_path)
+        if path_obj.suffix.lower() == ".json":
+            yield from self._stream_from_json(path_obj, document_field)
+        elif path_obj.suffix.lower() == ".csv":
+            yield from self._stream_from_csv(path_obj)
         else:
-            raise ValueError(f"Unsupported file format: {file_path.suffix}")
+            raise ValueError(f"Unsupported file format: {path_obj.suffix}")
 
     def _stream_from_json(
         self, file_path: Path, document_field: str
@@ -158,31 +159,17 @@ class StreamingDocumentProcessor:
         self, data: Dict[str, Any], document_field: str
     ) -> Optional[str]:
         """Extract text from dictionary document."""
-        if isinstance(data, str):
-            return data.strip() if data.strip() else None
+        text = DocumentTextExtractor.extract(data, text_fields=[document_field])
+        if text:
+            return text
 
-        if not isinstance(data, dict):
-            return None
-
-        # Try specified field first
-        if document_field in data:
-            text = data[document_field]
-            if isinstance(text, str) and text.strip():
-                return text.strip()
-
-        # Try common field names
-        for field in ["text", "content", "document", "body", "message"]:
-            if field in data:
-                text = data[field]
-                if isinstance(text, str) and text.strip():
-                    return text.strip()
-
-        return None
+        text = DocumentTextExtractor.extract(data)
+        return text
 
     def create_streaming_request(
         self,
         query: str,
-        document_source: Union[List, str],
+        document_source: Union[List[Union[str, Dict[str, Any]]], str],
         return_documents: bool = False,
         top_n: Optional[int] = None,
         document_field: str = "text",
@@ -213,7 +200,7 @@ class StreamingDocumentProcessor:
             ):
                 yield RerankRequest(
                     query=query,
-                    documents=chunk,
+                    documents=cast(List[Union[str, Dict[str, Any]]], chunk),
                     return_documents=return_documents,
                     top_n=top_n,
                 )
@@ -222,7 +209,7 @@ class StreamingDocumentProcessor:
 
     def estimate_memory_usage(
         self, num_documents: int, avg_doc_length: int = 1000
-    ) -> float:
+    ) -> Dict[str, Union[float, int]]:
         """Estimate memory usage for processing documents.
 
         Args:

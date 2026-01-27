@@ -3,10 +3,10 @@
   "sessionId": "309281f7-9ccd-458a-b1e5-68972c92ee3a",
   "status": "running",
   "startedAt": "2026-01-27T20:06:26.628Z",
-  "updatedAt": "2026-01-27T20:38:42.143Z",
-  "currentIteration": 5,
+  "updatedAt": "2026-01-27T20:51:09.334Z",
+  "currentIteration": 6,
   "maxIterations": 10,
-  "tasksCompleted": 5,
+  "tasksCompleted": 6,
   "isPaused": false,
   "agentPlugin": "opencode",
   "trackerState": {
@@ -52,8 +52,8 @@
       {
         "id": "bd-2za",
         "title": "US-005: Simplify BatchManager",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "bd-1e3",
@@ -137,6 +137,16 @@
       "durationMs": 331088,
       "startedAt": "2026-01-27T20:28:07.622Z",
       "endedAt": "2026-01-27T20:33:38.710Z"
+    },
+    {
+      "iteration": 6,
+      "status": "completed",
+      "taskId": "bd-2za",
+      "taskTitle": "US-005: Simplify BatchManager",
+      "taskCompleted": true,
+      "durationMs": 301622,
+      "startedAt": "2026-01-27T20:33:40.413Z",
+      "endedAt": "2026-01-27T20:38:42.035Z"
     }
   ],
   "skippedTaskIds": [],
