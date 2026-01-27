@@ -56,20 +56,3 @@ class RerankResponse(BaseModel):
     )  # Often added by the framework
     results: List[RerankResult] = Field(..., description="List of reranked results.")
     # Potentially add usage stats here later, matching Jina's API if applicable
-
-
-class ProgressUpdate(BaseModel):
-    """Model for progress updates during async reranking."""
-
-    current_batch: int = Field(..., description="Current batch being processed.")
-    total_batches: int = Field(..., description="Total number of batches.")
-    documents_processed: int = Field(
-        ..., description="Number of documents processed so far."
-    )
-    total_documents: int = Field(
-        ..., description="Total number of documents to process."
-    )
-    current_batch_results: int = Field(
-        ..., description="Number of results in current batch."
-    )
-    elapsed_time: float = Field(..., description="Elapsed time in seconds.")
