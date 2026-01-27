@@ -16,7 +16,6 @@ This project provides a FastAPI-based web service that implements a reranking AP
 *   **Sentence Transformers**: Uses powerful `sentence-transformers` library for PyTorch backend
 *   **Configurable Model**: Easily switch between different reranker models and backends
 *   **Modern FastAPI**: Built using modern FastAPI features like `lifespan` for resource management
-*   **Async Support**: Leverages asynchronous processing for potentially better concurrency
 *   **Modern Dependencies**: Updated to latest stable versions with sensible minimum requirements
 
 ## Requirements
@@ -24,6 +23,8 @@ This project provides a FastAPI-based web service that implements a reranking AP
 *   Python 3.12+
 *   [uv](https://github.com/astral-sh/uv) (for installation and package management - recommended)
 *   Sufficient RAM and compute resources (CPU or GPU) depending on the chosen reranker model
+
+**Note**: Version 2.0 introduced breaking changes. See [MIGRATION.md](MIGRATION.md) for details if you're upgrading from v1.x.
 
 ### Backend-Specific Requirements
 
@@ -347,17 +348,22 @@ export RERANKER_RELOAD=true
 local-reranker/
 ├── src/local_reranker/
 │   ├── __init__.py
-│   ├── api.py          # FastAPI application
-│   ├── cli.py          # Command line interface
-│   ├── config.py       # Configuration management
-│   ├── models.py       # Pydantic models
-│   ├── reranker.py     # Base reranker interface
-│   ├── reranker_pytorch.py  # PyTorch implementation
-│   ├── reranker_mlx.py      # MLX implementation
-│   └── utils.py        # Utility functions
-├── tests/              # Test suite
-├── pyproject.toml       # Project configuration
-└── README.md           # This file
+│   ├── api.py                   # FastAPI application
+│   ├── cli.py                   # Command line interface
+│   ├── config.py                # Configuration management
+│   ├── models.py                # Pydantic models
+│   ├── reranker.py              # Base reranker interface (protocol)
+│   ├── reranker_pytorch.py      # PyTorch implementation
+│   ├── reranker_mlx.py          # MLX implementation
+│   ├── batch_manager.py         # Batch size and document management
+│   ├── batch_processor.py       # Shared batch processing logic
+│   ├── result_aggregator.py     # Result aggregation and ordering
+│   ├── streaming_processor.py   # Streaming result processing
+│   ├── tokenization_cache.py    # Tokenization caching
+│   └── utils.py                 # Utility functions
+├── tests/                       # Test suite
+├── pyproject.toml               # Project configuration
+└── README.md                    # This file
 ```
 
 ## Contributing
