@@ -1,0 +1,14 @@
+{
+  "id": "98cc1713-69d8-46cb-adca-8bfa5bdaf80e",
+  "status": "completed",
+  "startedAt": "2026-01-27T19:26:26.386Z",
+  "updatedAt": "2026-01-27T19:27:02.635Z",
+  "agentPlugin": "opencode",
+  "trackerPlugin": "beads-rust",
+  "currentIteration": 0,
+  "maxIterations": 10,
+  "totalTasks": 0,
+  "tasksCompleted": 0,
+  "cwd": "/Users/GEO5BE4/work/ai-experiments/local-reranker",
+  "endedAt": "2026-01-27T19:27:02.634Z"
+}
