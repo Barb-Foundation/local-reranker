@@ -182,7 +182,7 @@ class TokenizationCache:
 
             # Persist to disk if enabled
             if self.persist_to_disk:
-                self._save_to_disk_async()
+                self._save_to_disk()
 
     def get_stats(self) -> CacheStats:
         """Get cache statistics."""
@@ -259,10 +259,8 @@ class TokenizationCache:
         except Exception as e:
             logger.warning(f"Failed to load disk cache: {e}")
 
-    def _save_to_disk_async(self):
-        """Save cache to disk (async simulation)."""
-        # In a real implementation, this would be async
-        # For now, save synchronously but only periodically
+    def _save_to_disk(self):
+        """Save cache to disk periodically."""
         if hasattr(self, "_last_save_time"):
             if time.time() - self._last_save_time < 60:  # Save at most once per minute
                 return
