@@ -11,8 +11,9 @@ from local_reranker.batch_processor import (
     create_placeholder_result,
     ModelPredictor,
     process_batches,
+    BatchProcessor,
 )
-from local_reranker.models import RerankRequest
+from local_reranker.models import RerankRequest, RerankResult, RerankDocument
 
 
 class TestDocumentTextExtractor:
@@ -385,6 +386,258 @@ class TestProcessBatches:
         assert len(results) == 1
         mock_aggregator.get_sorted_results.assert_called_once_with(1)
 
+    @patch("local_reranker.batch_processor.BatchManager")
+    @patch("local_reranker.batch_processor.ResultAggregator")
+    def test_process_batches_result_count_mismatch(
+        self, mock_aggregator_class, mock_batch_manager_class
+    ):
+        """Test batch processing with result count mismatch."""
+        mock_batch_manager = Mock()
+        mock_batch_manager.create_batches.return_value = (
+            [["doc1", "doc2"]],
+            [[0, 1]],
+        )
+        mock_batch_manager_class.return_value = mock_batch_manager
+
+        mock_aggregator = Mock()
+        mock_aggregator_class.return_value = mock_aggregator
+
+        def mock_predictor(
+            query: str, documents: list, return_documents: Optional[bool]
+        ):
+            return [{"index": 0, "relevance_score": 0.9}]
+
+        request = RerankRequest(query="test", documents=["doc1", "doc2"])
+
+        results = process_batches(
+            request=request,
+            batch_manager=mock_batch_manager,
+            model_predictor=mock_predictor,
+            backend_name="Test",
+        )
+
+        assert results == []
+
+    @patch("local_reranker.batch_processor.BatchManager")
+    @patch("local_reranker.batch_processor.ResultAggregator")
+    def test_process_batches_with_count_non_empty(
+        self, mock_aggregator_class, mock_batch_manager_class
+    ):
+        """Test batch processing with count_non_empty flag."""
+        mock_batch_manager = Mock()
+        mock_batch_manager.create_batches.return_value = (
+            [["doc1", "doc2"]],
+            [[0, 1]],
+        )
+        mock_batch_manager_class.return_value = mock_batch_manager
+
+        mock_aggregator = Mock()
+        mock_aggregator.get_sorted_results.return_value = [
+            Mock(index=0, relevance_score=0.9),
+            Mock(index=1, relevance_score=0.7),
+        ]
+        mock_aggregator.get_batch_statistics.return_value = {
+            "total_batches": 1,
+            "completion_rate": 1.0,
+        }
+        mock_aggregator_class.return_value = mock_aggregator
+
+        def mock_predictor(
+            query: str, documents: list, return_documents: Optional[bool]
+        ):
+            return [
+                {"index": i, "relevance_score": 0.9 - i * 0.2}
+                for i in range(len(documents))
+            ]
+
+        request = RerankRequest(query="test", documents=["doc1", "doc2"])
+
+        results = process_batches(
+            request=request,
+            batch_manager=mock_batch_manager,
+            model_predictor=mock_predictor,
+            backend_name="Test",
+            count_non_empty=True,
+        )
+
+        assert len(results) == 2
+        mock_aggregator.set_total_document_count.assert_called_once_with(2)
+
+    @patch("local_reranker.batch_processor.BatchManager")
+    @patch("local_reranker.batch_processor.ResultAggregator")
+    def test_process_batches_count_non_empty_with_empty_docs(
+        self, mock_aggregator_class, mock_batch_manager_class
+    ):
+        """Test batch processing with count_non_empty and empty documents."""
+        mock_batch_manager = Mock()
+        mock_batch_manager.create_batches.return_value = (
+            [["doc1", "", "doc3"]],
+            [[0, 1, 2]],
+        )
+        mock_batch_manager_class.return_value = mock_batch_manager
+
+        mock_aggregator = Mock()
+        mock_aggregator.get_sorted_results.return_value = []
+        mock_aggregator.get_batch_statistics.return_value = {
+            "total_batches": 1,
+            "completion_rate": 0.0,
+        }
+        mock_aggregator_class.return_value = mock_aggregator
+
+        def mock_predictor(
+            query: str, documents: list, return_documents: Optional[bool]
+        ):
+            return []
+
+        request = RerankRequest(query="test", documents=["doc1", "", "doc3"])
+
+        process_batches(
+            request=request,
+            batch_manager=mock_batch_manager,
+            model_predictor=mock_predictor,
+            backend_name="Test",
+            count_non_empty=True,
+        )
+
+        mock_aggregator.set_total_document_count.assert_called_once_with(2)
+
+    @patch("local_reranker.batch_processor.BatchManager")
+    @patch("local_reranker.batch_processor.ResultAggregator")
+    def test_process_batches_multiple_batches(
+        self, mock_aggregator_class, mock_batch_manager_class
+    ):
+        """Test processing multiple batches."""
+        mock_batch_manager = Mock()
+        mock_batch_manager.create_batches.return_value = (
+            [["doc1", "doc2"], ["doc3", "doc4"]],
+            [[0, 1], [2, 3]],
+        )
+        mock_batch_manager_class.return_value = mock_batch_manager
+
+        mock_aggregator = Mock()
+        mock_aggregator.get_sorted_results.return_value = [
+            Mock(index=0, relevance_score=0.9),
+            Mock(index=2, relevance_score=0.8),
+            Mock(index=1, relevance_score=0.7),
+            Mock(index=3, relevance_score=0.6),
+        ]
+        mock_aggregator.get_batch_statistics.return_value = {
+            "total_batches": 2,
+            "completion_rate": 1.0,
+        }
+        mock_aggregator_class.return_value = mock_aggregator
+
+        call_count = [0]
+
+        def mock_predictor(
+            query: str, documents: list, return_documents: Optional[bool]
+        ):
+            call_idx = call_count[0]
+            call_count[0] += 1
+            return [
+                {"index": i, "relevance_score": 0.9 - call_idx * 0.1 - i * 0.05}
+                for i in range(len(documents))
+            ]
+
+        request = RerankRequest(
+            query="test", documents=["doc1", "doc2", "doc3", "doc4"]
+        )
+
+        results = process_batches(
+            request=request,
+            batch_manager=mock_batch_manager,
+            model_predictor=mock_predictor,
+            backend_name="Test",
+        )
+
+        assert len(results) == 4
+        assert call_count[0] == 2
+        assert mock_aggregator.add_batch_results.call_count == 2
+
+    @patch("local_reranker.batch_processor.BatchManager")
+    @patch("local_reranker.batch_processor.ResultAggregator")
+    def test_process_batches_empty_results_from_predictor(
+        self, mock_aggregator_class, mock_batch_manager_class
+    ):
+        """Test batch processing when predictor returns empty results."""
+        mock_batch_manager = Mock()
+        mock_batch_manager.create_batches.return_value = (
+            [["doc1", "doc2"]],
+            [[0, 1]],
+        )
+        mock_batch_manager_class.return_value = mock_batch_manager
+
+        mock_aggregator = Mock()
+        mock_aggregator.get_sorted_results.return_value = []
+        mock_aggregator.get_batch_statistics.return_value = {
+            "total_batches": 1,
+            "completion_rate": 0.0,
+        }
+        mock_aggregator_class.return_value = mock_aggregator
+
+        def mock_predictor(
+            query: str, documents: list, return_documents: Optional[bool]
+        ):
+            return []
+
+        request = RerankRequest(query="test", documents=["doc1", "doc2"])
+
+        results = process_batches(
+            request=request,
+            batch_manager=mock_batch_manager,
+            model_predictor=mock_predictor,
+            backend_name="Test",
+        )
+
+        assert len(results) == 0
+        mock_aggregator.add_batch_results.assert_not_called()
+
+    @patch("local_reranker.batch_processor.BatchManager")
+    @patch("local_reranker.batch_processor.ResultAggregator")
+    def test_process_batches_with_return_documents(
+        self, mock_aggregator_class, mock_batch_manager_class
+    ):
+        """Test batch processing with return_documents=True."""
+        mock_batch_manager = Mock()
+        mock_batch_manager.create_batches.return_value = (
+            [["doc1", "doc2"]],
+            [[0, 1]],
+        )
+        mock_batch_manager_class.return_value = mock_batch_manager
+
+        mock_aggregator = Mock()
+        mock_aggregator.get_sorted_results.return_value = [
+            Mock(index=0, relevance_score=0.9),
+            Mock(index=1, relevance_score=0.7),
+        ]
+        mock_aggregator.get_batch_statistics.return_value = {
+            "total_batches": 1,
+            "completion_rate": 1.0,
+        }
+        mock_aggregator_class.return_value = mock_aggregator
+
+        def mock_predictor(
+            query: str, documents: list, return_documents: Optional[bool]
+        ):
+            assert return_documents is True
+            return [
+                {"index": i, "relevance_score": 0.9 - i * 0.2}
+                for i in range(len(documents))
+            ]
+
+        request = RerankRequest(
+            query="test", documents=["doc1", "doc2"], return_documents=True
+        )
+
+        results = process_batches(
+            request=request,
+            batch_manager=mock_batch_manager,
+            model_predictor=mock_predictor,
+            backend_name="Test",
+        )
+
+        assert len(results) == 2
+
 
 class TestModelPredictorProtocol:
     """Test ModelPredictor protocol."""
@@ -404,3 +657,198 @@ class TestModelPredictorProtocol:
             query=request.query, documents=request.documents, return_documents=False
         )
         assert len(results) == 1
+
+
+class TestBatchProcessor:
+    """Test BatchProcessor utility class."""
+
+    def test_process_batched_results_empty(self):
+        """Test processing empty batch results."""
+        results = BatchProcessor.process_batched_results([])
+        assert results == []
+
+    def test_process_batched_results_single_batch(self):
+        """Test processing single batch of results."""
+        batch = [
+            RerankResult(document=None, index=0, relevance_score=0.9),
+            RerankResult(document=None, index=1, relevance_score=0.7),
+        ]
+        results = BatchProcessor.process_batched_results([batch])
+        assert len(results) == 2
+        assert results[0].index == 0
+        assert results[0].relevance_score == 0.9
+        assert results[1].index == 1
+        assert results[1].relevance_score == 0.7
+
+    def test_process_batched_results_multiple_batches(self):
+        """Test processing multiple batches of results."""
+        batch1 = [
+            RerankResult(document=None, index=0, relevance_score=0.9),
+            RerankResult(document=None, index=1, relevance_score=0.7),
+        ]
+        batch2 = [
+            RerankResult(document=None, index=2, relevance_score=0.8),
+            RerankResult(document=None, index=3, relevance_score=0.6),
+        ]
+        results = BatchProcessor.process_batched_results([batch1, batch2])
+        assert len(results) == 4
+        assert results[0].index == 0
+        assert results[0].relevance_score == 0.9
+        assert results[1].index == 2
+        assert results[1].relevance_score == 0.8
+        assert results[2].index == 1
+        assert results[2].relevance_score == 0.7
+        assert results[3].index == 3
+        assert results[3].relevance_score == 0.6
+
+    def test_process_batched_results_with_top_n(self):
+        """Test processing batch results with top_n limit."""
+        batch = [
+            RerankResult(document=None, index=0, relevance_score=0.9),
+            RerankResult(document=None, index=1, relevance_score=0.7),
+            RerankResult(document=None, index=2, relevance_score=0.5),
+        ]
+        results = BatchProcessor.process_batched_results([batch], top_n=2)
+        assert len(results) == 2
+        assert results[0].relevance_score == 0.9
+        assert results[1].relevance_score == 0.7
+
+    def test_process_batched_results_without_top_n(self):
+        """Test processing batch results without top_n limit."""
+        batch = [
+            RerankResult(document=None, index=0, relevance_score=0.9),
+            RerankResult(document=None, index=1, relevance_score=0.7),
+        ]
+        results = BatchProcessor.process_batched_results([batch], top_n=None)
+        assert len(results) == 2
+
+    def test_process_batched_results_with_empty_batches(self):
+        """Test processing batch results with empty batches."""
+        batch1 = [
+            RerankResult(document=None, index=0, relevance_score=0.9),
+        ]
+        batch2 = []
+        batch3 = [
+            RerankResult(document=None, index=1, relevance_score=0.7),
+        ]
+        results = BatchProcessor.process_batched_results([batch1, batch2, batch3])
+        assert len(results) == 2
+        assert results[0].relevance_score == 0.9
+        assert results[1].relevance_score == 0.7
+
+    def test_process_batched_results_variable_batch_sizes(self):
+        """Test processing batches with different sizes."""
+        batch1 = [
+            RerankResult(document=None, index=0, relevance_score=0.9),
+        ]
+        batch2 = [
+            RerankResult(document=None, index=1, relevance_score=0.8),
+            RerankResult(document=None, index=2, relevance_score=0.7),
+        ]
+        batch3 = [
+            RerankResult(document=None, index=3, relevance_score=0.6),
+            RerankResult(document=None, index=4, relevance_score=0.5),
+            RerankResult(document=None, index=5, relevance_score=0.4),
+        ]
+        results = BatchProcessor.process_batched_results([batch1, batch2, batch3])
+        assert len(results) == 6
+        assert results[0].relevance_score == 0.9
+        assert results[-1].relevance_score == 0.4
+
+    def test_process_batched_results_with_documents(self):
+        """Test processing batch results with document content."""
+        batch = [
+            RerankResult(
+                document=RerankDocument(text="doc1"), index=0, relevance_score=0.9
+            ),
+            RerankResult(
+                document=RerankDocument(text="doc2"), index=1, relevance_score=0.7
+            ),
+        ]
+        results = BatchProcessor.process_batched_results([batch])
+        assert len(results) == 2
+        assert results[0].document is not None
+        assert results[0].document.text == "doc1"
+        assert results[1].document is not None
+        assert results[1].document.text == "doc2"
+
+    def test_process_batched_results_mixed_documents(self):
+        """Test processing batch results with mixed document presence."""
+        batch = [
+            RerankResult(
+                document=RerankDocument(text="doc1"), index=0, relevance_score=0.9
+            ),
+            RerankResult(document=None, index=1, relevance_score=0.8),
+            RerankResult(
+                document=RerankDocument(text="doc3"), index=2, relevance_score=0.7
+            ),
+        ]
+        results = BatchProcessor.process_batched_results([batch])
+        assert len(results) == 3
+        assert results[0].document is not None
+        assert results[1].document is None
+        assert results[2].document is not None
+
+    def test_process_batched_results_negative_scores(self):
+        """Test processing batch results with negative scores."""
+        batch = [
+            RerankResult(document=None, index=0, relevance_score=0.5),
+            RerankResult(document=None, index=1, relevance_score=-0.2),
+            RerankResult(document=None, index=2, relevance_score=0.3),
+        ]
+        results = BatchProcessor.process_batched_results([batch])
+        assert len(results) == 3
+        assert results[0].relevance_score == 0.5
+        assert results[1].relevance_score == 0.3
+        assert results[2].relevance_score == -0.2
+
+    def test_process_batched_results_zero_scores(self):
+        """Test processing batch results with zero scores."""
+        batch = [
+            RerankResult(document=None, index=0, relevance_score=0.0),
+            RerankResult(document=None, index=1, relevance_score=0.0),
+        ]
+        results = BatchProcessor.process_batched_results([batch])
+        assert len(results) == 2
+        assert all(r.relevance_score == 0.0 for r in results)
+
+    def test_process_batched_results_equal_scores(self):
+        """Test processing batch results with equal scores (stable sort)."""
+        batch = [
+            RerankResult(document=None, index=0, relevance_score=0.5),
+            RerankResult(document=None, index=1, relevance_score=0.5),
+            RerankResult(document=None, index=2, relevance_score=0.5),
+        ]
+        results = BatchProcessor.process_batched_results([batch])
+        assert len(results) == 3
+        assert all(r.relevance_score == 0.5 for r in results)
+
+    def test_process_batched_results_top_n_greater_than_total(self):
+        """Test processing with top_n greater than total results."""
+        batch = [
+            RerankResult(document=None, index=0, relevance_score=0.9),
+            RerankResult(document=None, index=1, relevance_score=0.7),
+        ]
+        results = BatchProcessor.process_batched_results([batch], top_n=10)
+        assert len(results) == 2
+
+    def test_process_batched_results_top_n_zero(self):
+        """Test processing with top_n=0."""
+        batch = [
+            RerankResult(document=None, index=0, relevance_score=0.9),
+        ]
+        results = BatchProcessor.process_batched_results([batch], top_n=0)
+        assert len(results) == 0
+
+    def test_process_batched_results_large_number_of_batches(self):
+        """Test processing many small batches."""
+        batches = [
+            [
+                RerankResult(document=None, index=i, relevance_score=0.9 - i * 0.1),
+            ]
+            for i in range(10)
+        ]
+        results = BatchProcessor.process_batched_results(batches)
+        assert len(results) == 10
+        assert results[0].relevance_score == 0.9
+        assert results[-1].relevance_score == 0.0
