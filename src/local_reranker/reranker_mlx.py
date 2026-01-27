@@ -8,9 +8,9 @@ import sys
 import importlib.util
 
 from .reranker import Reranker as RerankerProtocol
-from .models import RerankRequest, RerankResult
+from .models import RerankRequest, RerankResult, RerankDocument
 from .batch_manager import BatchManager
-from .batch_processor import process_batches
+from .batch_processor import BatchProcessor, DocumentTextExtractor
 from .mlx_cross_encoder import MLXCrossEncoderReranker
 
 logger = logging.getLogger(__name__)
@@ -125,10 +125,21 @@ class Reranker(RerankerProtocol):
             projector_path=projector_path,
         )
 
-    def _predict_batch(
+    def _prepare_inputs(self, documents: List[str]) -> List[str]:
+        """Prepare documents for the MLX model.
+
+        Args:
+            documents: List of document texts
+
+        Returns:
+            List of document texts (as-is)
+        """
+        return documents
+
+    def _run_inference(
         self, query: str, documents: List[str], return_documents: Optional[bool]
     ) -> List[Dict[str, Any]]:
-        """Predict scores for a batch of documents.
+        """Run inference on documents for a query.
 
         Args:
             query: The query text
@@ -136,25 +147,51 @@ class Reranker(RerankerProtocol):
             return_documents: Whether to include document content in results
 
         Returns:
-            List of result dictionaries with keys: index, relevance_score, document (optional)
+            List of result dictionaries from the model
         """
-        batch_results = self.model.rerank(
+        return self.model.rerank(
             query=query,
             documents=documents,
             top_n=None,
             return_embeddings=return_documents or False,
         )
 
-        results = []
-        for result in batch_results:
-            result_dict = {
-                "index": result["index"],
-                "relevance_score": result["relevance_score"],
-            }
-            if return_documents and "document" in result:
-                result_dict["document"] = result["document"]
-            results.append(result_dict)
+    def _convert_batch_to_results(
+        self,
+        batch_results: List[Dict[str, Any]],
+        original_indices: List[int],
+        return_documents: Optional[bool],
+        batch_docs: List[str],
+    ) -> List[RerankResult]:
+        """Convert model batch results to RerankResult objects.
 
+        Args:
+            batch_results: List of result dictionaries from the model
+            original_indices: Original document indices
+            return_documents: Whether to include document content in results
+            batch_docs: List of document texts in the batch
+
+        Returns:
+            List of RerankResult objects
+        """
+        results = []
+        for result_dict, original_idx in zip(batch_results, original_indices):
+            relevance_score = float(result_dict["relevance_score"])
+            batch_relative_index = int(result_dict["index"])
+
+            document = None
+            if return_documents and batch_relative_index < len(batch_docs):
+                doc_text = batch_docs[batch_relative_index]
+                if doc_text:
+                    document = RerankDocument(text=doc_text)
+
+            results.append(
+                RerankResult(
+                    document=document,
+                    index=original_idx,
+                    relevance_score=relevance_score,
+                )
+            )
         return results
 
     def rerank(self, request: RerankRequest) -> List[RerankResult]:
@@ -174,10 +211,54 @@ class Reranker(RerankerProtocol):
             logger.warning("[MLX] Empty query provided")
             return []
 
-        return process_batches(
-            request=request,
-            batch_manager=self.batch_manager,
-            model_predictor=self._predict_batch,
-            backend_name="MLX",
-            count_non_empty=False,
-        )
+        if not request.documents:
+            logger.info("[MLX] No documents to rerank")
+            return []
+
+        filtered_docs = [
+            doc
+            for doc in request.documents
+            if doc and DocumentTextExtractor.extract(doc)
+        ]
+
+        if not filtered_docs:
+            logger.info("[MLX] No valid documents after filtering")
+            return []
+
+        batches, batch_indices = self.batch_manager.create_batches(request)
+
+        if not batches:
+            logger.warning("[MLX] No batches created")
+            return []
+
+        all_batch_results = []
+        for batch_idx, (batch_docs, original_indices) in enumerate(
+            zip(batches, batch_indices)
+        ):
+            logger.info(
+                f"[MLX] Processing batch {batch_idx + 1}/{len(batches)}: "
+                f"{len(batch_docs)} documents"
+            )
+
+            inputs = self._prepare_inputs(batch_docs)
+            raw_results = self._run_inference(
+                request.query, inputs, request.return_documents or False
+            )
+
+            if len(raw_results) != len(batch_docs):
+                logger.error(
+                    f"[MLX] Result count mismatch in batch {batch_idx + 1}: "
+                    f"expected {len(batch_docs)} results, got {len(raw_results)}"
+                )
+                return []
+
+            batch_results = self._convert_batch_to_results(
+                raw_results, original_indices, request.return_documents, batch_docs
+            )
+            all_batch_results.append(batch_results)
+
+            logger.info(
+                f"[MLX] Batch {batch_idx + 1} completed: {len(batch_results)} results"
+            )
+
+        return BatchProcessor.process_batched_results(all_batch_results, request.top_n)
