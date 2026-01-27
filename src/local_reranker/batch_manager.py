@@ -17,7 +17,6 @@ class BatchManager:
     def __init__(
         self,
         batch_size: Optional[int] = None,
-        max_concurrent_batches: Optional[int] = None,
         memory_limit_mb: Optional[int] = None,
     ):
         """
@@ -25,15 +24,11 @@ class BatchManager:
 
         Args:
             batch_size: Number of documents per batch (auto-detected if None)
-            max_concurrent_batches: Maximum concurrent batches (default: 3)
             memory_limit_mb: Memory limit in MB for dynamic sizing
         """
         # Configuration from environment or defaults
         self.batch_size = (
             batch_size if batch_size is not None else self._get_env_batch_size()
-        )
-        self.max_concurrent_batches = (
-            max_concurrent_batches or self._get_env_max_concurrent()
         )
         self.memory_limit_mb = memory_limit_mb or self._get_env_memory_limit()
 
@@ -43,7 +38,6 @@ class BatchManager:
 
         logger.info(
             f"BatchManager initialized: batch_size={self.batch_size}, "
-            f"max_concurrent={self.max_concurrent_batches}, "
             f"memory_limit={self.memory_limit_mb}MB"
         )
 
@@ -54,14 +48,6 @@ class BatchManager:
         except ValueError:
             logger.warning("Invalid RERANKER_BATCH_SIZE, using default 12")
             return 12
-
-    def _get_env_max_concurrent(self) -> int:
-        """Get max concurrent batches from environment variable."""
-        try:
-            return int(os.getenv("RERANKER_MAX_CONCURRENT_BATCHES", "3"))
-        except ValueError:
-            logger.warning("Invalid RERANKER_MAX_CONCURRENT_BATCHES, using default 3")
-            return 3
 
     def _get_env_memory_limit(self) -> int:
         """Get memory limit from environment variable."""
@@ -241,7 +227,6 @@ class BatchManager:
             memory_info = psutil.virtual_memory()
             return {
                 "batch_size": self.batch_size,
-                "max_concurrent_batches": self.max_concurrent_batches,
                 "memory_limit_mb": self.memory_limit_mb,
                 "available_memory_gb": memory_info.available / (1024**3),
                 "total_memory_gb": memory_info.total / (1024**3),
@@ -251,7 +236,6 @@ class BatchManager:
             logger.error(f"Failed to get system status: {e}")
             return {
                 "batch_size": self.batch_size,
-                "max_concurrent_batches": self.max_concurrent_batches,
                 "memory_limit_mb": self.memory_limit_mb,
                 "error": str(e),
             }

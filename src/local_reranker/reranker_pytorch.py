@@ -24,7 +24,6 @@ class Reranker(RerankerProtocol):
         model_name: str = DEFAULT_MODEL_NAME,
         device: Optional[str] = None,
         batch_size: Optional[int] = None,
-        max_concurrent_batches: Optional[int] = None,
     ):
         """Initializes the Reranker with batching support.
 
@@ -32,13 +31,10 @@ class Reranker(RerankerProtocol):
             model_name: The name of the CrossEncoder model to load.
             device: The device to run the model on ('cpu', 'cuda', 'mps').
             batch_size: Number of documents per batch (auto-detected if None).
-            max_concurrent_batches: Maximum concurrent batches for processing.
         """
         self.model_name = model_name
         self.device = device or self._get_best_device()
-        self.batch_manager = BatchManager(
-            batch_size=batch_size, max_concurrent_batches=max_concurrent_batches
-        )
+        self.batch_manager = BatchManager(batch_size=batch_size)
 
         logger.info(
             f"Initializing Reranker with model '{self.model_name}' on device '{self.device}' "

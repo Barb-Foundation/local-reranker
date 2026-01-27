@@ -15,7 +15,6 @@ class Reranker(Protocol):
         model_name: str = ...,
         device: Optional[str] = None,
         batch_size: Optional[int] = None,
-        max_concurrent_batches: Optional[int] = None,
     ) -> None:
         """Initialize the reranker with a model name and device.
 
@@ -24,7 +23,6 @@ class Reranker(Protocol):
             device: The device to run the model on ('cpu', 'cuda', 'mps').
                    If None, attempts to auto-detect.
             batch_size: Number of documents per batch (auto-detected if None).
-            max_concurrent_batches: Maximum concurrent batches for processing.
         """
         ...
 
