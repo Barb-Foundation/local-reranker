@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "sessionId": "309281f7-9ccd-458a-b1e5-68972c92ee3a",
+  "status": "running",
+  "startedAt": "2026-01-27T20:06:26.628Z",
+  "updatedAt": "2026-01-27T20:14:29.859Z",
+  "currentIteration": 0,
+  "maxIterations": 10,
+  "tasksCompleted": 0,
+  "isPaused": false,
+  "agentPlugin": "opencode",
+  "trackerState": {
+    "plugin": "beads-rust",
+    "totalTasks": 12,
+    "tasks": [
+      {
+        "id": "bd-fui",
+        "title": "US-011: Run performance benchmarks",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-iv7",
+        "title": "US-010: Update documentation",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-3r7",
+        "title": "US-009: Add BatchProcessor unit tests",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-645",
+        "title": "US-008: Refactor MLX backend to use BatchProcessor",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-ni6",
+        "title": "US-007: Refactor PyTorch backend to use BatchProcessor",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-196",
+        "title": "US-006: Create BatchProcessor utility module",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-2za",
+        "title": "US-005: Simplify BatchManager",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-1e3",
+        "title": "US-004: Remove async-related models and imports",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-1o6",
+        "title": "US-003: Remove async implementations from MLX backend",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-2gr",
+        "title": "US-002: Remove async implementations from PyTorch backend",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-sf1",
+        "title": "US-001: Remove async methods from protocol",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "bd-33e",
+        "title": "Batch Processing Refactoring",
+        "status": "open",
+        "completedInSession": false
+      }
+    ]
+  },
+  "iterations": [],
+  "skippedTaskIds": [],
+  "cwd": "/Users/GEO5BE4/work/ai-experiments/local-reranker",
+  "activeTaskIds": [],
+  "subagentPanelVisible": false
+}

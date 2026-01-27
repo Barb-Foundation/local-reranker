@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Pydantic models for API request/response validation."""
 
-from typing import List, Optional, Union, Dict, Any, AsyncGenerator
+from typing import List, Optional, Union, Dict, Any
 from pydantic import BaseModel, Field
 
 

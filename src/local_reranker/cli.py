@@ -19,7 +19,6 @@ def run_server(settings: Settings) -> None:
         settings: Configuration settings.
     """
     # Set environment variables for the API module to pick up
-    import os
 
     os.environ["RERANKER_BACKEND_TYPE"] = settings.backend_type
     if settings.model_name:

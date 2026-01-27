@@ -88,7 +88,7 @@ class BatchManager:
             memory_based_batch = max(4, min(20, int(available_memory_gb * 2)))
 
             # Consider CPU cores for concurrent processing
-            cpu_cores = psutil.cpu_count()
+            cpu_cores = psutil.cpu_count() or 1
             cpu_based_batch = max(4, min(16, cpu_cores * 2))
 
             # Use the more conservative of the two calculations

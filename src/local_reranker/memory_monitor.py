@@ -3,12 +3,10 @@
 
 import logging
 import gc
-import os
 import threading
 import time
 from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass
-from pathlib import Path
 
 try:
     import psutil
