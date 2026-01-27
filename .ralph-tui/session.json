@@ -3,10 +3,10 @@
   "sessionId": "309281f7-9ccd-458a-b1e5-68972c92ee3a",
   "status": "running",
   "startedAt": "2026-01-27T20:06:26.628Z",
-  "updatedAt": "2026-01-27T20:17:59.783Z",
-  "currentIteration": 1,
+  "updatedAt": "2026-01-27T20:20:59.379Z",
+  "currentIteration": 2,
   "maxIterations": 10,
-  "tasksCompleted": 1,
+  "tasksCompleted": 2,
   "isPaused": false,
   "agentPlugin": "opencode",
   "trackerState": {
@@ -76,8 +76,8 @@
       {
         "id": "bd-sf1",
         "title": "US-001: Remove async methods from protocol",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "bd-33e",
@@ -97,6 +97,16 @@
       "durationMs": 477288,
       "startedAt": "2026-01-27T20:06:32.449Z",
       "endedAt": "2026-01-27T20:14:29.737Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "bd-sf1",
+      "taskTitle": "US-001: Remove async methods from protocol",
+      "taskCompleted": true,
+      "durationMs": 207766,
+      "startedAt": "2026-01-27T20:14:31.900Z",
+      "endedAt": "2026-01-27T20:17:59.666Z"
     }
   ],
   "skippedTaskIds": [],
