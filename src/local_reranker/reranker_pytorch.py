@@ -2,14 +2,15 @@
 """PyTorch implementation of the reranker protocol."""
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Optional, Tuple, Union
 
 import torch
+import numpy as np
 from sentence_transformers import CrossEncoder
 from .reranker import Reranker as RerankerProtocol
-from .models import RerankRequest, RerankResult
+from .models import RerankRequest, RerankResult, RerankDocument
 from .batch_manager import BatchManager
-from .batch_processor import process_batches
+from .batch_processor import BatchProcessor, DocumentTextExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -77,32 +78,64 @@ class Reranker(RerankerProtocol):
             logger.info("No GPU detected (CUDA or MPS). Using CPU.")
             return "cpu"
 
-    def _predict_batch(
-        self, query: str, documents: List[str], return_documents: Optional[bool]
-    ) -> List[Dict[str, Any]]:
-        """Predict scores for a batch of documents.
+    def _prepare_inputs(
+        self, query: str, documents: List[str]
+    ) -> List[Tuple[str, str]]:
+        """Prepare query-document pairs for the CrossEncoder model.
 
         Args:
             query: The query text
             documents: List of document texts
-            return_documents: Whether to include document content in results
 
         Returns:
-            List of result dictionaries with keys: index, relevance_score, document (optional)
+            List of query-document tuples
         """
-        sentence_pairs = [(query, doc) for doc in documents]
-        scores = self.model.predict(sentence_pairs, show_progress_bar=False)
+        return [(query, doc) for doc in documents]
 
+    def _run_inference(
+        self, inputs: List[Tuple[str, str]]
+    ) -> Union[List[float], "np.ndarray"]:
+        """Run inference on query-document pairs.
+
+        Args:
+            inputs: List of query-document tuples
+
+        Returns:
+            List or array of relevance scores
+        """
+        return self.model.predict(inputs, show_progress_bar=False)
+
+    def _convert_batch_to_results(
+        self,
+        scores: List[float],
+        original_indices: List[int],
+        return_documents: Optional[bool],
+        batch_docs: List[str],
+    ) -> List[RerankResult]:
+        """Convert model scores to RerankResult objects.
+
+        Args:
+            scores: List of relevance scores from the model
+            original_indices: Original document indices
+            return_documents: Whether to include document content in results
+            batch_docs: List of document texts in the batch
+
+        Returns:
+            List of RerankResult objects
+        """
         results = []
-        for idx, score in enumerate(scores):
-            result = {
-                "index": idx,
-                "relevance_score": float(score),
-            }
-            if return_documents:
-                result["document"] = documents[idx]
-            results.append(result)
+        for idx, (score, original_idx) in enumerate(zip(scores, original_indices)):
+            document = None
+            if return_documents and idx < len(batch_docs):
+                document = RerankDocument(text=batch_docs[idx])
 
+            results.append(
+                RerankResult(
+                    document=document,
+                    index=original_idx,
+                    relevance_score=float(score),
+                )
+            )
         return results
 
     def rerank(self, request: RerankRequest) -> List[RerankResult]:
@@ -114,10 +147,38 @@ class Reranker(RerankerProtocol):
         Returns:
             A list of rerank results, sorted by relevance score (descending).
         """
-        return process_batches(
-            request=request,
-            batch_manager=self.batch_manager,
-            model_predictor=self._predict_batch,
-            backend_name="PyTorch",
-            count_non_empty=True,
-        )
+        if not request.documents:
+            return []
+
+        filtered_docs = [
+            doc
+            for doc in request.documents
+            if doc and DocumentTextExtractor.extract(doc)
+        ]
+
+        if not filtered_docs:
+            return []
+
+        batches, batch_indices = self.batch_manager.create_batches(request)
+
+        if not batches:
+            return []
+
+        all_batch_results = []
+        for batch_docs, original_indices in zip(batches, batch_indices):
+            inputs = self._prepare_inputs(request.query, batch_docs)
+            scores = self._run_inference(inputs)
+
+            if len(scores) != len(batch_docs):
+                logger.error(
+                    f"[PyTorch] Result count mismatch: expected {len(batch_docs)} results, "
+                    f"got {len(scores)}"
+                )
+                return []
+
+            batch_results = self._convert_batch_to_results(
+                list(scores), original_indices, request.return_documents, batch_docs
+            )
+            all_batch_results.append(batch_results)
+
+        return BatchProcessor.process_batched_results(all_batch_results, request.top_n)

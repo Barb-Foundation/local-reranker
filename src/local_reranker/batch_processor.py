@@ -302,3 +302,41 @@ def process_batches(
     )
 
     return final_results
+
+
+class BatchProcessor:
+    """Utility class for processing batched rerank results."""
+
+    @staticmethod
+    def process_batched_results(
+        batch_results: List[List[RerankResult]], top_n: Optional[int] = None
+    ) -> List[RerankResult]:
+        """Flatten, sort, and filter batched rerank results.
+
+        Args:
+            batch_results: List of batch result lists
+            top_n: Optional limit on number of results to return
+
+        Returns:
+            List of rerank results, sorted by relevance score (descending)
+        """
+        if not batch_results:
+            return []
+
+        flattened_results = []
+        for batch in batch_results:
+            flattened_results.extend(batch)
+
+        sorted_results = sorted(
+            flattened_results, key=lambda x: x.relevance_score, reverse=True
+        )
+
+        if top_n is not None:
+            sorted_results = sorted_results[:top_n]
+
+        logger.info(
+            f"BatchProcessor: Processed {len(flattened_results)} results from "
+            f"{len(batch_results)} batches, returning {len(sorted_results)} results"
+        )
+
+        return sorted_results
