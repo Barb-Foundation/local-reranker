@@ -10,7 +10,7 @@ authors = [
 ]
 description = "A lightweight, local reranker API implementation compatible with Jina."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License", 
@@ -36,6 +36,7 @@ dependencies = [
     "mlx>=0.30.0",
     "mlx-lm>=0.28.0",
     "safetensors>=0.5.0",
+    "psutil>=7.0.0",
 ] 
 
 [project.urls]

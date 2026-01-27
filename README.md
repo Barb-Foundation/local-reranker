@@ -12,6 +12,7 @@ This project provides a FastAPI-based web service that implements a reranking AP
 *   **Local Hosting**: Run reranker model entirely on your own infrastructure
 *   **Multiple Backends**: Supports both PyTorch and MLX backends for optimal performance
 *   **Apple Silicon Optimization**: MLX backend provides optimized performance for M1/M2/M3 chips
+*   **MLX Fallback Reranker**: Automatically wraps MLX-converted Hugging Face models that do not ship a `rerank.py` helper
 *   **Sentence Transformers**: Uses powerful `sentence-transformers` library for PyTorch backend
 *   **Configurable Model**: Easily switch between different reranker models and backends
 *   **Modern FastAPI**: Built using modern FastAPI features like `lifespan` for resource management
@@ -280,6 +281,10 @@ python -c "import mlx; print(mlx.metal.is_available())"
 # Monitor memory usage
 top -o mem | grep python
 ```
+
+### Using MLX Models Without `rerank.py`
+
+The MLX backend now includes an internal cross-encoder reranker that automatically loads any MLX-converted Hugging Face repository, even when the repo does not provide a `rerank.py` helper. When `rerank.py` is missing or cannot be imported, the server logs a message similar to `Using internal cross-encoder fallback` so you can confirm which path is active. If your model ships a `projector.safetensors` file, place it next to the weights—the fallback reranker will load it to project hidden states into the correct embedding space. When the projector file is absent, the reranker falls back to raw hidden states, so you can still experiment with newly converted models without extra work.
 
 ### Configuration Issues
 

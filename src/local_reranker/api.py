@@ -15,7 +15,6 @@ from .reranker_mlx import Reranker as MLXReranker
 from .config import Settings, get_effective_model_name
 
 # --- Logging Setup ---
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -106,21 +105,61 @@ async def rerank_endpoint(
     request_id = str(uuid.uuid4())
     logger.debug(f"[{request_id}] Received rerank request.")
     logger.info(f"[{request_id}] Reranking query: {request_body.query}")
-    # logger.info(f"[{request_id}] Reranking request: {request_body}")
+
+    # Debug logging for request details and passage lengths (only if debug enabled)
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(f"[{request_id}] Request details:")
+        logger.debug(
+            f"[{request_id}] - Number of documents: {len(request_body.documents)}"
+        )
+        logger.debug(f"[{request_id}] - Top N requested: {request_body.top_n}")
+        logger.debug(
+            f"[{request_id}] - Return documents: {request_body.return_documents}"
+        )
+
+        # Log passage lengths
+        for i, doc in enumerate(request_body.documents):
+            if isinstance(doc, str):
+                passage_length = len(doc)
+                logger.debug(
+                    f"[{request_id}] Document {i}: {passage_length} characters"
+                )
+            elif isinstance(doc, dict) and "text" in doc:
+                passage_length = len(doc["text"])
+                logger.debug(
+                    f"[{request_id}] Document {i}: {passage_length} characters"
+                )
+            else:
+                logger.debug(f"[{request_id}] Document {i}: Invalid format")
+
     try:
         # Call the reranker's rerank method
         results = reranker.rerank(request_body)
 
-        # Add top score and first few characters of top document to the log message
-        top_doc_preview = ""
-        top_score = "N/A"
+        # Add detailed results logging (only if debug enabled)
         if results:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"[{request_id}] Reranking results:")
+                for i, result in enumerate(results):
+                    doc_length = 0
+                    doc_preview = ""
+                    if request_body.return_documents and result.document:
+                        doc_length = len(result.document.text)
+                        doc_preview = result.document.text[:50].replace("\n", " ")
+                    logger.debug(
+                        f"[{request_id}] Result {i}: score={result.relevance_score:.4f}, index={result.index}, length={doc_length}, preview='{doc_preview}...'"
+                    )
+
+            # Add top score and first few characters of top document to the log message
             top_score = results[0].relevance_score
+            top_doc_preview = ""
             if request_body.return_documents and results[0].document:
-                top_doc_preview = results[0].document.text[:50]
-        logger.info(
-            f"[{request_id}] Reranking done, top score: {top_score}, preview: {top_doc_preview}"
-        )
+                top_doc_preview = results[0].document.text[:50].replace("\n", " ")
+            logger.info(
+                f"[{request_id}] Reranking done, top score: {top_score}, preview: {top_doc_preview}"
+            )
+        else:
+            logger.info(f"[{request_id}] Reranking done, no results returned")
         # logger.info(f"results: {results}")
         response = RerankResponse(id=request_id, results=results)
 

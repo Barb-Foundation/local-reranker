@@ -25,6 +25,12 @@ def run_server(settings: Settings) -> None:
     if settings.model_name:
         os.environ["RERANKER_MODEL_NAME"] = settings.model_name
 
+    # Configure logging for the application
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper()),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     uvicorn.run(
         "local_reranker.api:app",
         host=settings.host,
@@ -158,7 +164,7 @@ def main() -> None:
             settings = Settings()
             config_show(settings)
         else:
-            config_parser.print_help()
+            parser.print_help()
         return
 
     # Handle serve command
