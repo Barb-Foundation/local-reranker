@@ -7,10 +7,13 @@ import logging
 from pathlib import Path
 from typing import Any, cast
 
+import mlx.core as mx
 import mlx.nn as nn
+import torch
 from mlx_lm import load
 
 from .jina_mlp_projector import JinaMLPProjector, _load_projector
+from .jina_prompt_formatter import _format_jina_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +73,74 @@ class JinaMLXReranker:
         except Exception as e:
             msg = f"Failed to load projector from {projector_path}: {e}"
             raise RuntimeError(msg) from e
+
+    def _compute_single_batch(
+        self, query: str, documents: list[str]
+    ) -> tuple[mx.array, mx.array, list[float]]:
+        """Compute embeddings and cosine similarity for a single batch.
+
+        Args:
+            query: The search query.
+            documents: List of documents to rerank.
+
+        Returns:
+            Tuple of (query_embeds, doc_embeds, scores) where:
+            - query_embeds: Projected query embedding tensor
+            - doc_embeds: Projected document embedding tensors
+            - scores: Cosine similarity scores between query and each document
+
+        Raises:
+            ValueError: If special tokens are not found in tokenized prompt.
+        """
+        prompt = _format_jina_prompt(query, documents)
+
+        tokens = self.tokenizer.encode(prompt, add_special_tokens=False)
+        tokens_array = mx.array([tokens], dtype=mx.int32)
+
+        hidden_states = self.model(tokens_array)
+        mx.eval(hidden_states)
+
+        hidden_states = hidden_states[0]
+
+        doc_positions = [
+            i for i, t in enumerate(tokens) if t == self.doc_embed_token_id
+        ]
+        query_position = None
+        for i, t in enumerate(tokens):
+            if t == self.query_embed_token_id:
+                query_position = i
+                break
+
+        if query_position is None:
+            msg = "Query embed token (151671) not found in tokenized prompt"
+            raise ValueError(msg)
+
+        if len(doc_positions) != len(documents):
+            msg = f"Expected {len(documents)} document embed tokens (151670), found {len(doc_positions)}"
+            raise ValueError(msg)
+
+        query_embedding = hidden_states[query_position]
+        query_embeds_pt = self.projector(torch.from_numpy(query_embedding))
+
+        doc_embeds_list_pt = []
+        for pos in doc_positions:
+            doc_embedding = hidden_states[pos]
+            projected = self.projector(torch.from_numpy(doc_embedding))
+            doc_embeds_list_pt.append(projected)
+
+        query_embeds = mx.array(query_embeds_pt.detach().numpy())
+        doc_embeds_list = [mx.array(p.detach().numpy()) for p in doc_embeds_list_pt]
+        doc_embeds = mx.stack(doc_embeds_list)
+
+        query_norm = mx.sqrt(mx.sum(query_embeds * query_embeds) + 1e-12)
+        normalized_query = query_embeds / query_norm
+
+        doc_norms = mx.sqrt(mx.sum(doc_embeds * doc_embeds, axis=1) + 1e-12)
+        normalized_docs = doc_embeds / doc_norms[:, None]
+
+        cos_sims = mx.sum(normalized_docs * normalized_query, axis=1)
+        mx.eval(cos_sims)
+
+        scores = list(cast(list[float], cos_sims.tolist()))
+
+        return query_embeds, doc_embeds, scores
