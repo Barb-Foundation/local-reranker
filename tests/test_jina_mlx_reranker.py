@@ -521,3 +521,174 @@ class TestFullRerankingPipeline:
                 assert "relevance_score" in result
                 assert isinstance(result["index"], int)
                 assert isinstance(result["relevance_score"], float)
+
+
+MLX_MODEL_NAME = "jinaai/jina-reranker-v3-mlx"
+
+QUERY_HIGH_ALTITUDE = (
+    "The physiological impact of high-altitude training on long-distance "
+    "athletic endurance and oxygen transport"
+)
+
+DOCUMENTS_HIGH_ALTITUDE = [
+    "High-altitude training, conducted above 2,400 meters, is a staple for elite athletes. "
+    "The primary physiological adaptation is the surge in erythropoietin (EPO) production, "
+    "a hormone from the kidneys that triggers red blood cell creation. By increasing hemoglobin "
+    "mass, athletes boost the oxygen-carrying capacity of their blood, aiding performance at "
+    "sea level. However, the lower oxygen pressure can reduce training intensity, potentially "
+    "leading to muscle detraining. To counter this, many use the Live-High, Train-Low (LHTL) "
+    "model, resting at altitude for hematological gains but descending for high-intensity "
+    "workouts. Studies show a four-week stay is necessary for measurable VO2 max improvements. "
+    "Without careful management, the stress of hypoxia can lead to overtraining or sleep "
+    "disturbances. This document explores the complex relationship between hemoglobin mass, "
+    "oxygen saturation, and the metabolic cost of maintaining power output in rarefied air "
+    "conditions over long durations.",
+    "The 1968 Olympic Games in Mexico City (2,240m) acted as a global laboratory for altitude "
+    "physiology. While sprinters thrived due to low air resistance, endurance athletes suffered. "
+    "This event catalyzed research into how the body manages oxygen transport under stress. "
+    "Post-1968, centers in Colorado Springs and St. Moritz became vital for training. The focus "
+    "shifted to understanding VO2 max and the kidneys response to hypoxia. This retrospective "
+    "looks at the data from distance runners who experienced significant drops in aerobic "
+    "capacity during the games. It analyzes how blood pH shifts as the body breathes harder to "
+    "expel CO2, a process known as respiratory alkalosis. This historical data is essential for "
+    "modern coaches planning periodization for events at varying elevations.",
+    "High-altitude cooking requires adjustments in fluid dynamics. As pressure drops, the "
+    "boiling point of water decreases, meaning pasta and grains take longer to soften. Bakers "
+    "must reduce leavening agents because air bubbles expand faster in thin air, which can "
+    "cause cakes to collapse. This document covers the chemistry of heat transfer and molecular "
+    "structure at 3,000 meters, specifically for industrial kitchens in the Andes. It explains "
+    "why pressure cookers are essential for food safety and texture when atmospheric pressure is "
+    "30 percent lower than at sea level. It does not cover athletic performance or physiological "
+    "oxygen transport, focusing purely on culinary thermodynamics and the physical properties "
+    "of steam.",
+    "Modern mountain photography in the Himalayas involves managing high UV levels and extreme "
+    "light contrast. Thin air filters less light, leading to blue hazes in images. Photographers "
+    "must use polarizers and UV filters to protect sensors and maintain color accuracy. Battery "
+    "life is also a concern, as extreme cold at high altitudes drains power rapidly. This guide "
+    "provides technical settings for landscape photography at 5,000 meters, including how to "
+    "manage the high dynamic range of bright snow against dark rock shadows. It discusses the "
+    "physical endurance of the photographer but does not provide scientific data on oxygen "
+    "transport or red blood cell mass.",
+]
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+@pytest.mark.skipif(not mlx_available, reason="MLX dependencies not installed")
+class TestJinaMLXRerankerIntegration:
+    """Integration tests with real Jina MLX model."""
+
+    def test_rerank_real_model_scores_in_expected_range(self) -> None:
+        """Test that real model produces scores in expected [0.2, 0.7] range."""
+        from huggingface_hub import snapshot_download
+        from local_reranker.jina_mlx_reranker import JinaMLXReranker
+
+        model_path = snapshot_download(
+            repo_id=MLX_MODEL_NAME,
+            allow_patterns=["*.safetensors", "*.json", "*.txt", "*.py", "*.md"],
+        )
+        projector_path = f"{model_path}/projector.safetensors"
+
+        reranker = JinaMLXReranker(model_path=model_path, projector_path=projector_path)
+
+        results = reranker.rerank(QUERY_HIGH_ALTITUDE, DOCUMENTS_HIGH_ALTITUDE, top_n=3)
+
+        assert len(results) == 3
+        for result in results:
+            score = result["relevance_score"]
+            assert 0.2 <= score <= 0.7, (
+                f"Score {score} not in expected range [0.2, 0.7]"
+            )
+
+    def test_rerank_real_model_ranking_order(self) -> None:
+        """Test that real model produces correct ranking order."""
+        from huggingface_hub import snapshot_download
+        from local_reranker.jina_mlx_reranker import JinaMLXReranker
+
+        model_path = snapshot_download(
+            repo_id=MLX_MODEL_NAME,
+            allow_patterns=["*.safetensors", "*.json", "*.txt", "*.py", "*.md"],
+        )
+        projector_path = f"{model_path}/projector.safetensors"
+
+        reranker = JinaMLXReranker(model_path=model_path, projector_path=projector_path)
+
+        results = reranker.rerank(QUERY_HIGH_ALTITUDE, DOCUMENTS_HIGH_ALTITUDE, top_n=3)
+
+        assert len(results) == 3
+        indices = [r["index"] for r in results]
+        scores = [r["relevance_score"] for r in results]
+
+        assert scores == sorted(scores, reverse=True)
+        assert indices[0] == 0
+
+    def test_rerank_real_model_matches_curl_example(self) -> None:
+        """Test with same query/documents from .attic/curl2.sh."""
+        from huggingface_hub import snapshot_download
+        from local_reranker.jina_mlx_reranker import JinaMLXReranker
+
+        model_path = snapshot_download(
+            repo_id=MLX_MODEL_NAME,
+            allow_patterns=["*.safetensors", "*.json", "*.txt", "*.py", "*.md"],
+        )
+        projector_path = f"{model_path}/projector.safetensors"
+
+        reranker = JinaMLXReranker(model_path=model_path, projector_path=projector_path)
+
+        results = reranker.rerank(QUERY_HIGH_ALTITUDE, DOCUMENTS_HIGH_ALTITUDE, top_n=3)
+
+        assert len(results) == 3
+
+        indices = [r["index"] for r in results]
+        scores = [r["relevance_score"] for r in results]
+
+        assert indices[0] == 0
+        for score in scores:
+            assert 0.2 <= score <= 0.7, (
+                f"Score {score} not in expected range [0.2, 0.7]"
+            )
+
+    def test_rerank_real_model_scores_close_to_pytorch_baseline(self) -> None:
+        """Test that MLX scores are close to PyTorch baseline scores."""
+        pytest.importorskip("torch")
+        pytest.importorskip("sentence_transformers")
+
+        from huggingface_hub import snapshot_download
+        from sentence_transformers import CrossEncoder
+        from local_reranker.jina_mlx_reranker import JinaMLXReranker
+
+        mlx_model_path = snapshot_download(
+            repo_id=MLX_MODEL_NAME,
+            allow_patterns=["*.safetensors", "*.json", "*.txt", "*.py", "*.md"],
+        )
+        mlx_projector_path = f"{mlx_model_path}/projector.safetensors"
+
+        mlx_reranker = JinaMLXReranker(
+            model_path=mlx_model_path, projector_path=mlx_projector_path
+        )
+
+        pytorch_model = CrossEncoder(
+            model_name_or_path="jinaai/jina-reranker-v2-base-multilingual",
+            device="cpu",
+            trust_remote_code=True,
+        )
+
+        mlx_results = mlx_reranker.rerank(
+            QUERY_HIGH_ALTITUDE, DOCUMENTS_HIGH_ALTITUDE, top_n=3
+        )
+        mlx_scores = [r["relevance_score"] for r in mlx_results]
+
+        pairs = [(QUERY_HIGH_ALTITUDE, doc) for doc in DOCUMENTS_HIGH_ALTITUDE]
+        pytorch_scores = pytorch_model.predict(pairs, show_progress_bar=False)
+
+        sorted_pytorch_indices = sorted(
+            range(len(pytorch_scores)), key=lambda i: pytorch_scores[i], reverse=True
+        )[:3]
+        pytorch_top_scores = [pytorch_scores[i] for i in sorted_pytorch_indices]
+
+        mlx_indices = [r["index"] for r in mlx_results]
+        assert mlx_indices == sorted_pytorch_indices
+
+        for mlx_score, pytorch_score in zip(mlx_scores, pytorch_top_scores):
+            assert 0.2 <= mlx_score <= 0.7
+            assert abs(mlx_score - pytorch_score) < 0.3
