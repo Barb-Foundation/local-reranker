@@ -177,3 +177,8 @@ cython_debug/
 
 # bv (beads viewer) local config and caches
 .bv/
+
+.ralph-tui/iterations/  
+.ralph-tui/session.json  
+.ralph-tui/progress.md  
+.ralph-tui/sessions.lock

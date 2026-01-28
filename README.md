@@ -24,8 +24,6 @@ This project provides a FastAPI-based web service that implements a reranking AP
 *   [uv](https://github.com/astral-sh/uv) (for installation and package management - recommended)
 *   Sufficient RAM and compute resources (CPU or GPU) depending on the chosen reranker model
 
-**Note**: Version 2.0 introduced breaking changes. See [MIGRATION.md](MIGRATION.md) for details if you're upgrading from v1.x.
-
 ### Backend-Specific Requirements
 
 **PyTorch Backend:**
