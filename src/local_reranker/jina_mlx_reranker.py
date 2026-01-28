@@ -144,3 +144,49 @@ class JinaMLXReranker:
         scores = list(cast(list[float], cos_sims.tolist()))
 
         return query_embeds, doc_embeds, scores
+
+    def rerank(
+        self,
+        query: str,
+        documents: list[str],
+        top_n: int | None = None,
+        return_embeddings: bool = False,
+    ) -> list[dict[str, object]]:
+        """Rerank documents based on relevance to the query.
+
+        Args:
+            query: The search query.
+            documents: List of documents to rerank.
+            top_n: Number of top results to return. If None, returns all documents.
+            return_embeddings: Whether to include document text and embeddings in results.
+
+        Returns:
+            List of result dictionaries sorted by relevance score (descending).
+            Each dict contains: index, relevance_score, and optionally document and embedding.
+        """
+        if not documents:
+            return []
+
+        query_embeds, doc_embeds, scores = self._compute_single_batch(query, documents)
+
+        doc_embeds_list = cast(list[list[float]], doc_embeds.tolist())
+
+        results: list[dict[str, object]] = []
+        for idx, (doc, score, embedding) in enumerate(
+            zip(documents, scores, doc_embeds_list)
+        ):
+            result: dict[str, object] = {
+                "index": idx,
+                "relevance_score": float(score),
+            }
+            if return_embeddings:
+                result["document"] = doc
+                result["embedding"] = embedding
+            results.append(result)
+
+        results.sort(key=lambda x: cast(float, x["relevance_score"]), reverse=True)
+
+        if top_n is not None:
+            results = results[:top_n]
+
+        return results
