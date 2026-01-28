@@ -3,15 +3,12 @@
 
 from typing import List, Dict, Any, Optional
 import logging
-import os
-import sys
-import importlib.util
 
 from .reranker import Reranker as RerankerProtocol
 from .models import RerankRequest, RerankResult, RerankDocument
 from .batch_manager import BatchManager
 from .batch_processor import BatchProcessor, DocumentTextExtractor
-from .mlx_cross_encoder import MLXCrossEncoderReranker
+from .jina_mlx_reranker import JinaMLXReranker
 
 logger = logging.getLogger(__name__)
 
@@ -77,54 +74,20 @@ class Reranker(RerankerProtocol):
             raise RuntimeError(f"Failed to download model files: {e}") from e
 
     def _load_mlx_reranker(self, model_path: str):
-        """Load MLX reranker, falling back to the internal cross-encoder as needed."""
-        rerank_file = os.path.join(model_path, "rerank.py")
-        projector_path = os.path.join(model_path, "projector.safetensors")
+        """Load MLX reranker using JinaMLXReranker.
 
-        if os.path.exists(rerank_file):
-            try:
-                reranker = self._load_repo_reranker(
-                    rerank_file=rerank_file,
-                    model_path=model_path,
-                    projector_path=projector_path,
-                )
-                logger.info(
-                    "[MLX] Using repo-provided MLXReranker implementation from %s",
-                    rerank_file,
-                )
-                return reranker
-            except Exception as repo_error:
-                logger.warning(
-                    "[MLX] Failed to load repo-provided reranker at %s: %s. "
-                    "Falling back to internal cross-encoder.",
-                    rerank_file,
-                    repo_error,
-                )
-        else:
-            logger.info(
-                "[MLX] rerank.py not found in %s. Using internal cross-encoder fallback.",
-                model_path,
-            )
+        Args:
+            model_path: Path to the MLX model directory.
 
-        return MLXCrossEncoderReranker(
-            model_path=model_path,
-            projector_path=projector_path,
-        )
+        Returns:
+            JinaMLXReranker instance.
 
-    def _load_repo_reranker(
-        self, rerank_file: str, model_path: str, projector_path: str
-    ):
-        """Load a repo-provided MLXReranker implementation from rerank.py."""
-        spec = importlib.util.spec_from_file_location("mlx_reranker", rerank_file)
-        if spec is None or spec.loader is None:
-            raise RuntimeError(f"Failed to load module spec from {rerank_file}")
+        Raises:
+            RuntimeError: If model or projector loading fails.
+        """
+        projector_path = f"{model_path}/projector.safetensors"
 
-        mlx_reranker_module = importlib.util.module_from_spec(spec)
-        sys.modules["mlx_reranker"] = mlx_reranker_module
-        spec.loader.exec_module(mlx_reranker_module)
-
-        MLXRerankerImpl = mlx_reranker_module.MLXReranker
-        return MLXRerankerImpl(
+        return JinaMLXReranker(
             model_path=model_path,
             projector_path=projector_path,
         )

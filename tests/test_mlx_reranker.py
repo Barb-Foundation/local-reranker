@@ -43,58 +43,30 @@ class TestMLXReranker:
         with pytest.raises(RuntimeError, match="Failed to load MLX model"):
             MLXReranker()
 
-    def test_load_mlx_reranker_uses_fallback_when_file_missing(self):
+    def test_load_mlx_reranker_uses_jina_mlx_reranker(self):
+        """Test that _load_mlx_reranker directly instantiates JinaMLXReranker."""
         reranker = MLXReranker.__new__(MLXReranker)
-        fallback_instance = Mock()
+        jina_reranker_instance = Mock()
 
-        with (
-            patch("os.path.exists", return_value=False),
-            patch(
-                "local_reranker.reranker_mlx.MLXCrossEncoderReranker",
-                return_value=fallback_instance,
-            ) as mock_fallback,
-        ):
+        with patch(
+            "local_reranker.reranker_mlx.JinaMLXReranker",
+            return_value=jina_reranker_instance,
+        ) as mock_jina:
             loaded = reranker._load_mlx_reranker("/tmp/model")
 
-        mock_fallback.assert_called_once()
-        assert loaded is fallback_instance
+        mock_jina.assert_called_once_with(
+            model_path="/tmp/model",
+            projector_path="/tmp/model/projector.safetensors",
+        )
+        assert loaded is jina_reranker_instance
 
-    def test_load_mlx_reranker_falls_back_on_repo_error(self):
+    def test_load_mlx_reranker_raises_runtime_error_on_failure(self):
+        """Test that _load_mlx_reranker raises RuntimeError on failure."""
         reranker = MLXReranker.__new__(MLXReranker)
-        fallback_instance = Mock()
 
-        with (
-            patch("os.path.exists", return_value=True),
-            patch.object(
-                MLXReranker,
-                "_load_repo_reranker",
-                side_effect=RuntimeError("boom"),
-            ),
-            patch(
-                "local_reranker.reranker_mlx.MLXCrossEncoderReranker",
-                return_value=fallback_instance,
-            ) as mock_fallback,
+        with patch(
+            "local_reranker.reranker_mlx.JinaMLXReranker",
+            side_effect=RuntimeError("Failed to load model"),
         ):
-            loaded = reranker._load_mlx_reranker("/tmp/model")
-
-        mock_fallback.assert_called_once()
-        assert loaded is fallback_instance
-
-    def test_load_mlx_reranker_prefers_repo_impl(self):
-        reranker = MLXReranker.__new__(MLXReranker)
-        repo_instance = Mock()
-
-        with (
-            patch("os.path.exists", return_value=True),
-            patch.object(
-                MLXReranker, "_load_repo_reranker", return_value=repo_instance
-            ) as mock_loader,
-            patch(
-                "local_reranker.reranker_mlx.MLXCrossEncoderReranker",
-            ) as mock_fallback,
-        ):
-            loaded = reranker._load_mlx_reranker("/tmp/model")
-
-        mock_loader.assert_called_once()
-        mock_fallback.assert_not_called()
-        assert loaded is repo_instance
+            with pytest.raises(RuntimeError):
+                reranker._load_mlx_reranker("/tmp/model")
