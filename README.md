@@ -115,24 +115,6 @@ cli config show
 
 ## Running the Server
 
-### Method 1: Using CLI (Recommended)
-
-```bash
-# Start with default settings
-cli serve
-
-# Start with custom settings
-cli serve --backend mlx --host 0.0.0.0 --port 8080
-```
-
-**Configuration Management:**
-
-```bash
-cli config show
-```
-
-## Running the Server
-
 ### Method 1: Using the CLI (Recommended)
 
 ```bash
