@@ -24,8 +24,6 @@ This project provides a FastAPI-based web service that implements a reranking AP
 *   [uv](https://github.com/astral-sh/uv) (for installation and package management - recommended)
 *   Sufficient RAM and compute resources (CPU or GPU) depending on the chosen reranker model
 
-**Note**: Version 2.0 introduced breaking changes. See [MIGRATION.md](MIGRATION.md) for details if you're upgrading from v1.x.
-
 ### Backend-Specific Requirements
 
 **PyTorch Backend:**
@@ -112,56 +110,6 @@ cli serve --backend pytorch --reload --log-level debug
 ```bash
 cli config show
 ```
-
-## Running the Server
-
-### Method 1: Using CLI (Recommended)
-
-```bash
-# Start with default settings
-cli serve
-
-# Start with custom settings
-cli serve --backend mlx --host 0.0.0.0 --port 8080
-```
-
-**Configuration Management:**
-
-```bash
-cli config show
-```
-
-## Running the Server
-
-### Method 1: Using the CLI (Recommended)
-
-```bash
-# Start with default settings
-cli serve
-
-# Start with custom settings
-cli serve --reranker mlx --host 0.0.0.0 --port 8080
-```
-
-### Method 2: Using uvicorn directly
-
-```bash
-# Ensure virtual environment is active
-uvicorn local_reranker.api:app --host 0.0.0.0 --port 8010 --reload
-```
-
-### Method 3: Using uv run
-
-```bash
-# From project root directory
-uv run uvicorn local_reranker.api:app --host 0.0.0.0 --port 8010 --reload
-```
-
-The server will start, and the first time it runs, it will download the default reranker model:
-*   **PyTorch**: `jina-reranker-v2-base-multilingual` (~1.4GB)
-*   **MLX**: `jina-reranker-v3-mlx` (~1.2GB, Apple Silicon optimized)
-
-Model download may take some time depending on your internet connection.
 
 ## API Usage
 

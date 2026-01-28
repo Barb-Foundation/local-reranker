@@ -1,8 +1,8 @@
 configVersion = "2.1"
-defaultTracker = "beads-rust"
+defaultTracker = "json"
 maxIterations = 10
 agent = "opencode"
-tracker = "beads-rust"
+tracker = "json"
 autoCommit = true
 
 [agentOptions]
