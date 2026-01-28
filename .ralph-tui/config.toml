@@ -4,6 +4,7 @@ maxIterations = 10
 agent = "opencode"
 tracker = "json"
 autoCommit = true
+subagentTracingDetail = "off"
 
 [agentOptions]
 [trackerOptions]

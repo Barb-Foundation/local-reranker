@@ -1,14 +1,14 @@
 {
-  "id": "8464061e-e024-47b4-95b4-cfd262ef939f",
-  "status": "running",
-  "startedAt": "2026-01-28T16:58:20.606Z",
-  "updatedAt": "2026-01-28T17:38:09.069Z",
+  "id": "d363c3ca-b609-4a96-aae1-676a8839bc57",
+  "status": "completed",
+  "startedAt": "2026-01-28T20:42:16.062Z",
+  "updatedAt": "2026-01-28T20:42:35.134Z",
   "agentPlugin": "opencode",
   "trackerPlugin": "json",
-  "prdPath": "tasks/prd-adopt-jina-reranker.json",
-  "currentIteration": 10,
-  "maxIterations": 11,
+  "currentIteration": 0,
+  "maxIterations": 10,
   "totalTasks": 0,
-  "tasksCompleted": 10,
-  "cwd": "/Users/GEO5BE4/work/ai-experiments/local-reranker"
+  "tasksCompleted": 0,
+  "cwd": "/Users/GEO5BE4/work/ai-experiments/local-reranker",
+  "endedAt": "2026-01-28T20:42:35.134Z"
 }
