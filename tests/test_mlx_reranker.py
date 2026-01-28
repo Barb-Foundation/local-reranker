@@ -35,10 +35,10 @@ class TestMLXReranker:
         assert hasattr(MLXReranker, "rerank")
         assert hasattr(MLXReranker, "__init__")
 
-    @patch("huggingface_hub.snapshot_download")
-    def test_initialization_runtime_error(self, mock_snapshot_download):
+    @patch("local_reranker.reranker_mlx.JinaMLXReranker")
+    def test_initialization_runtime_error(self, mock_jina_reranker):
         """Test handling of runtime errors during initialization."""
-        mock_snapshot_download.side_effect = Exception("Download failed")
+        mock_jina_reranker.side_effect = RuntimeError("Failed to load model")
 
         with pytest.raises(RuntimeError, match="Failed to load MLX model"):
             MLXReranker()
