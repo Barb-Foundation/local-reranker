@@ -113,38 +113,6 @@ cli serve --backend pytorch --reload --log-level debug
 cli config show
 ```
 
-## Running the Server
-
-### Method 1: Using the CLI (Recommended)
-
-```bash
-# Start with default settings
-cli serve
-
-# Start with custom settings
-cli serve --reranker mlx --host 0.0.0.0 --port 8080
-```
-
-### Method 2: Using uvicorn directly
-
-```bash
-# Ensure virtual environment is active
-uvicorn local_reranker.api:app --host 0.0.0.0 --port 8010 --reload
-```
-
-### Method 3: Using uv run
-
-```bash
-# From project root directory
-uv run uvicorn local_reranker.api:app --host 0.0.0.0 --port 8010 --reload
-```
-
-The server will start, and the first time it runs, it will download the default reranker model:
-*   **PyTorch**: `jina-reranker-v2-base-multilingual` (~1.4GB)
-*   **MLX**: `jina-reranker-v3-mlx` (~1.2GB, Apple Silicon optimized)
-
-Model download may take some time depending on your internet connection.
-
 ## API Usage
 
 Once the server is running, you can send requests to the `/v1/rerank` endpoint. Here's an example using `curl`:

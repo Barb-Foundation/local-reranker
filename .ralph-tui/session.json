@@ -3,10 +3,10 @@
   "sessionId": "b0b53ab4-0341-40e5-8a67-496ea640f0f0",
   "status": "running",
   "startedAt": "2026-01-28T15:18:47.072Z",
-  "updatedAt": "2026-01-28T15:20:11.988Z",
-  "currentIteration": 0,
+  "updatedAt": "2026-01-28T15:21:20.148Z",
+  "currentIteration": 1,
   "maxIterations": 10,
-  "tasksCompleted": 0,
+  "tasksCompleted": 1,
   "isPaused": false,
   "agentPlugin": "opencode",
   "trackerState": {
@@ -17,8 +17,8 @@
       {
         "id": "bd-3ns",
         "title": "US-001: Remove duplicate 'Running the Server' section",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "bd-2wq",
@@ -28,7 +28,18 @@
       }
     ]
   },
-  "iterations": [],
+  "iterations": [
+    {
+      "iteration": 1,
+      "status": "completed",
+      "taskId": "bd-3ns",
+      "taskTitle": "US-001: Remove duplicate 'Running the Server' section",
+      "taskCompleted": true,
+      "durationMs": 66532,
+      "startedAt": "2026-01-28T15:19:05.375Z",
+      "endedAt": "2026-01-28T15:20:11.907Z"
+    }
+  ],
   "skippedTaskIds": [],
   "cwd": "/Users/GEO5BE4/work/ai-experiments/local-reranker",
   "activeTaskIds": [],
