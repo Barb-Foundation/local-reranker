@@ -1,0 +1,246 @@
+{
+  "name": "Adopt Jina MLX Reranker",
+  "description": "Replace current MLX reranker implementation that attempts to load rerank.py from model files with a proper Jina-style MLX reranker implementation directly integrated into codebase.",
+  "branchName": "ralph/adopt-jina-reranker",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create JinaMLPProjector class",
+      "description": "As a developer, I want a fixed-architecture MLP projector (1024→512→512) so that Jina projector weights can be loaded correctly.",
+      "acceptanceCriteria": [
+        "Create JinaMLPProjector class with fixed dimensions (1024→512→512)",
+        "Use ReLU activation (not GELU)",
+        "No bias terms on either layer",
+        "Implement __call__ method for forward pass",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Create projector weight loading function",
+      "description": "As a developer, I want a safe function to load projector weights so that invalid configurations are caught early.",
+      "acceptanceCriteria": [
+        "Implement _load_projector function that loads from projector.safetensors",
+        "Verify linear1.weight shape is (512, 1024)",
+        "Verify linear2.weight shape is (512, 512)",
+        "Raise FileNotFoundError if projector file doesn't exist",
+        "Raise ValueError with explicit message if shapes don't match",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Create prompt formatting helper functions",
+      "description": "As a developer, I want helper functions to format Jina prompts so that special tokens are placed correctly.",
+      "acceptanceCriteria": [
+        "Implement _sanitize_input function to remove special tokens from text",
+        "Implement _format_jina_prompt function with complete prompt structure",
+        "Include fixed system message for reranking tasks",
+        "Format documents with <passage id=\"{i}\"> tags",
+        "Place embed tokens immediately after document/query text",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-004",
+      "title": "Create JinaMLXReranker class with initialization",
+      "description": "As a developer, I want a JinaMLXReranker class that loads the model and projector so that reranking can be performed.",
+      "acceptanceCriteria": [
+        "Implement __init__ method accepting model_path and projector_path",
+        "Load MLX model and tokenizer using mlx_lm.load",
+        "Load projector using _load_projector function",
+        "Define special tokens: doc_embed_token_id=151670, query_embed_token_id=151671",
+        "Raise RuntimeError if model or projector loading fails",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001",
+        "US-002",
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Implement core batch computation method",
+      "description": "As a developer, I want a _compute_single_batch method that extracts embeddings and computes cosine similarity so that documents can be reranked.",
+      "acceptanceCriteria": [
+        "Format prompt using _format_jina_prompt",
+        "Tokenize prompt and get hidden states from model",
+        "Find positions of special tokens (151670, 151671)",
+        "Extract embeddings at special token positions",
+        "Project embeddings through MLP",
+        "Compute cosine similarity WITHOUT pre-normalization: (A·B) / (||A|| * ||B||)",
+        "Return query_embeds, doc_embeds, scores",
+        "Raise ValueError if special tokens not found",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-003",
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Implement public rerank method",
+      "description": "As a developer, I want a rerank method that returns ranked documents so that it can be used via the Reranker protocol.",
+      "acceptanceCriteria": [
+        "Implement rerank method accepting query, documents, top_n, return_embeddings",
+        "Process all documents in single batch via _compute_single_batch",
+        "Sort results by relevance score (descending)",
+        "Return list of dicts with: document, relevance_score, index, embedding (if requested)",
+        "Support top_n parameter to limit results",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Update reranker_mlx.py to use JinaMLXReranker",
+      "description": "As a developer, I want reranker_mlx.py to use the new JinaMLXReranker so that rerank.py loading is removed.",
+      "acceptanceCriteria": [
+        "Add import: from .jina_mlx_reranker import JinaMLXReranker",
+        "Remove import: importlib.util",
+        "Remove _load_repo_reranker method completely",
+        "Replace _load_mlx_reranker to directly instantiate JinaMLXReranker",
+        "Remove all rerank.py file existence checks",
+        "Raise explicit RuntimeError on failure instead of falling back",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Update module exports",
+      "description": "As a developer, I want JinaMLXReranker exported from __init__.py so that it can be imported by users.",
+      "acceptanceCriteria": [
+        "Check src/local_reranker/__init__.py for MLXCrossEncoderReranker export",
+        "Add JinaMLXReranker to imports and __all__ list",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Remove outdated MLX reranker tests",
+      "description": "As a developer, I want to remove tests for functionality that no longer exists so that the test suite is clean.",
+      "acceptanceCriteria": [
+        "Remove test_load_mlx_reranker_uses_fallback_when_file_missing",
+        "Remove test_load_mlx_reranker_falls_back_on_repo_error",
+        "Remove test_load_mlx_reranker_prefers_repo_impl",
+        "Keep test_mlx_reranker_implements_protocol",
+        "Update test_initialization_runtime_error to mock JinaMLXReranker",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-007"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Add unit tests for JinaMLXReranker",
+      "description": "As a developer, I want unit tests for JinaMLXReranker so that its components work correctly in isolation.",
+      "acceptanceCriteria": [
+        "Create tests/test_jina_mlx_reranker.py",
+        "Add test for projector loading with correct shapes",
+        "Add test for prompt format matching Jina specification",
+        "Add test for special token extraction",
+        "Add test for cosine similarity formula",
+        "Add test for full reranking pipeline",
+        "Mark all tests with @pytest.mark.unit",
+        "Mark slow tests with @pytest.mark.slow (if any)",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes",
+        "uv run pytest tests/ -m \"not (integration or slow)\" passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Add integration test with real model",
+      "description": "As a developer, I want an integration test with the actual Jina MLX model so that scores match expected range.",
+      "acceptanceCriteria": [
+        "Create integration test in tests/test_jina_mlx_reranker.py",
+        "Mark test with @pytest.mark.integration",
+        "Mark test with @pytest.mark.slow",
+        "Load real jinaai/jina-reranker-v3-mlx model",
+        "Test with same query/documents from .attic/curl2.sh",
+        "Verify scores are in range [0.2, 0.7] (not [0.01, -0.07])",
+        "Verify ranking matches [0, 3, 9] indices",
+        "Verify scores close to PyTorch baseline",
+        "uv run ruff check src/ passes",
+        "uv run pyright src/ passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-006"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-01-28T17:00:47.228Z"
+  }
+}
