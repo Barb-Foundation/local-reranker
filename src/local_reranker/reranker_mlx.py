@@ -24,6 +24,7 @@ class Reranker(RerankerProtocol):
         model_name: str = "jinaai/jina-reranker-v3-mlx",
         device: Optional[str] = None,
         batch_size: Optional[int] = None,
+        disable_batching: bool = False,
     ):
         """Initialize MLX reranker with batching support.
 
@@ -32,6 +33,7 @@ class Reranker(RerankerProtocol):
             device: The device to run the model on. MLX auto-detects Apple Silicon GPU/CPU.
                     This parameter is kept for protocol compatibility but ignored.
             batch_size: Number of documents per batch (auto-detected if None).
+            disable_batching: If True, process all documents in one batch.
 
         Raises:
             ImportError: If MLX dependencies are not installed.
@@ -40,7 +42,9 @@ class Reranker(RerankerProtocol):
         self.model_name = model_name
         self.device = device
 
-        self.batch_manager = BatchManager(batch_size=batch_size)
+        self.batch_manager = BatchManager(
+            batch_size=batch_size, disable_batching=disable_batching
+        )
 
         try:
             model_path = self._prepare_model_files(model_name)

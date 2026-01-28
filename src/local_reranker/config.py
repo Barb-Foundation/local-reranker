@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     # Reranker configuration
     backend_type: str = "pytorch"
     model_name: Optional[str] = None  # None = use reranker default
+    disable_batching: bool = False
 
     # Server configuration
     host: str = "0.0.0.0"

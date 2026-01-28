@@ -36,7 +36,10 @@ class TestMLXAPIIntegration:
         # Mock the lifespan function to test MLX loading
         with TestClient(app) as client:
             # Test that MLX reranker was instantiated
-            mock_mlx.assert_called_once_with(model_name="jinaai/jina-reranker-v3-mlx")
+            mock_mlx.assert_called_once_with(
+                model_name="jinaai/jina-reranker-v3-mlx",
+                disable_batching=mock_settings.disable_batching,
+            )
             mock_pytorch.assert_not_called()
 
     @patch("local_reranker.api.MLXReranker")

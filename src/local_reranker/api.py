@@ -36,9 +36,13 @@ async def lifespan(app: FastAPI):
 
         # Initialize reranker based on type
         if settings.backend_type == "pytorch":
-            reranker_instance = PyTorchReranker(model_name=model_name)
+            reranker_instance = PyTorchReranker(
+                model_name=model_name, disable_batching=settings.disable_batching
+            )
         elif settings.backend_type == "mlx":
-            reranker_instance = MLXReranker(model_name=model_name)
+            reranker_instance = MLXReranker(
+                model_name=model_name, disable_batching=settings.disable_batching
+            )
         else:
             raise ValueError(f"Unsupported reranker type: {settings.backend_type}")
 

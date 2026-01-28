@@ -100,6 +100,11 @@ def main() -> None:
         parser.add_argument(
             "--reload", action="store_true", help="Enable auto-reload for development."
         )
+        parser.add_argument(
+            "--disable-batching",
+            action="store_true",
+            help="Disable batching entirely - process all documents in one batch.",
+        )
         args = parser.parse_args()
         args.command = "serve"
     else:
@@ -145,6 +150,11 @@ def main() -> None:
         server_parser.add_argument(
             "--reload", action="store_true", help="Enable auto-reload for development."
         )
+        server_parser.add_argument(
+            "--disable-batching",
+            action="store_true",
+            help="Disable batching entirely - process all documents in one batch.",
+        )
 
         # Config command
         config_parser = subparsers.add_parser(
@@ -175,6 +185,7 @@ def main() -> None:
             port=args.port,
             log_level=args.log_level,
             reload=args.reload,
+            disable_batching=args.disable_batching,
         )
 
         logger.info(

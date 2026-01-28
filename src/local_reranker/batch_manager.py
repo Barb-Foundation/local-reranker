@@ -18,6 +18,7 @@ class BatchManager:
         self,
         batch_size: Optional[int] = None,
         memory_limit_mb: Optional[int] = None,
+        disable_batching: bool = False,
     ):
         """
         Initialize batch manager with configuration.
@@ -25,12 +26,13 @@ class BatchManager:
         Args:
             batch_size: Number of documents per batch (auto-detected if None)
             memory_limit_mb: Memory limit in MB for dynamic sizing
+            disable_batching: If True, process all documents in one batch
         """
-        # Configuration from environment or defaults
-        self.batch_size = (
-            batch_size if batch_size is not None else self._get_env_batch_size()
-        )
-        self.memory_limit_mb = memory_limit_mb or self._get_env_memory_limit()
+        # Configuration
+        self.batch_size = batch_size if batch_size is not None else 12
+        self.memory_limit_mb = memory_limit_mb or 1024
+        self.disable_batching = disable_batching
+        self.max_chars_per_batch = 10000  # Fixed default for content-aware batching
 
         # Auto-adjust batch size based on system resources
         if batch_size is None:
@@ -38,16 +40,9 @@ class BatchManager:
 
         logger.info(
             f"BatchManager initialized: batch_size={self.batch_size}, "
-            f"memory_limit={self.memory_limit_mb}MB"
+            f"memory_limit={self.memory_limit_mb}MB, "
+            f"disable_batching={disable_batching}"
         )
-
-    def _get_env_batch_size(self) -> int:
-        """Get batch size from environment variable."""
-        try:
-            return int(os.getenv("RERANKER_BATCH_SIZE", "12"))
-        except ValueError:
-            logger.warning("Invalid RERANKER_BATCH_SIZE, using default 12")
-            return 12
 
     def _get_env_memory_limit(self) -> int:
         """Get memory limit from environment variable."""
@@ -137,29 +132,56 @@ class BatchManager:
             logger.warning("BatchManager: No valid documents after processing")
             return [], []
 
-        # Create batches
+        # Handle disable batching - all docs in one batch
+        if self.disable_batching:
+            total_chars = sum(len(doc) for doc in documents)
+            logger.info(
+                f"BatchManager: Batching disabled - 1 batch with {len(documents)} docs, {total_chars} chars"
+            )
+            return [documents], [original_indices]
+
+        # Content-aware batching with count and character limits
         batches = []
         batch_indices = []
+        current_batch = []
+        current_batch_indices = []
+        current_batch_chars = 0
 
-        for i in range(0, len(documents), self.batch_size):
-            end_idx = min(i + self.batch_size, len(documents))
-            batch_docs = documents[i:end_idx]
-            batch_idx = original_indices[i:end_idx]
+        for doc_text, original_idx in zip(documents, original_indices):
+            doc_chars = len(doc_text)
 
-            batches.append(batch_docs)
-            batch_indices.append(batch_idx)
+            # Start new batch if limits exceeded
+            if current_batch and (
+                len(current_batch) >= self.batch_size
+                or current_batch_chars + doc_chars > self.max_chars_per_batch
+            ):
+                batches.append(current_batch)
+                batch_indices.append(current_batch_indices)
+                current_batch = []
+                current_batch_indices = []
+                current_batch_chars = 0
 
-            if logger.isEnabledFor(logging.DEBUG):
+            current_batch.append(doc_text)
+            current_batch_indices.append(original_idx)
+            current_batch_chars += doc_chars
+
+        # Add final batch if not empty
+        if current_batch:
+            batches.append(current_batch)
+            batch_indices.append(current_batch_indices)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            for i, (batch_docs, batch_idx) in enumerate(zip(batches, batch_indices)):
                 total_chars = sum(len(doc) for doc in batch_docs)
                 logger.debug(
-                    f"BatchManager: Created batch {len(batches)}: "
+                    f"BatchManager: Created batch {i + 1}: "
                     f"{len(batch_docs)} docs, {total_chars} chars, "
                     f"indices {batch_idx[0]}-{batch_idx[-1]}"
                 )
 
         logger.info(
             f"BatchManager: Created {len(batches)} batches from {len(documents)} documents "
-            f"(batch_size={self.batch_size})"
+            f"(batch_size={self.batch_size}, max_chars={self.max_chars_per_batch})"
         )
 
         return batches, batch_indices
