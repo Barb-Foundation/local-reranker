@@ -11,7 +11,6 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from .models import RerankRequest, RerankResponse
 from .reranker import Reranker as RerankerProtocol
 from .reranker_pytorch import Reranker as PyTorchReranker
-from .reranker_mlx import Reranker as MLXReranker
 from .config import Settings, get_effective_model_name
 
 # --- Logging Setup ---
@@ -40,6 +39,7 @@ async def lifespan(app: FastAPI):
                 model_name=model_name, disable_batching=settings.disable_batching
             )
         elif settings.backend_type == "mlx":
+            from .reranker_mlx import Reranker as MLXReranker
             reranker_instance = MLXReranker(
                 model_name=model_name, disable_batching=settings.disable_batching
             )

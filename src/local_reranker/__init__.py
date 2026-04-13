@@ -7,6 +7,5 @@ A lightweight, local reranker API implementation.
 __version__ = "0.0.1"  # Placeholder version
 
 from .cli import main
-from .jina_mlx_reranker import JinaMLXReranker
 
-__all__ = ["main", "JinaMLXReranker"]
+__all__ = ["main"]
